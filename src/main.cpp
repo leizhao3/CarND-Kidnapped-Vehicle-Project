@@ -77,6 +77,7 @@ int main() {
             double previous_yawrate = std::stod(j[1]["previous_yawrate"].get<string>());
 
             pf.prediction(delta_t, sigma_pos, previous_velocity, previous_yawrate);
+            //should this sigma_pos be the stand deviation of the volocity & yawrate sensor??
           }
 
           // receive noisy observation data from the simulator
