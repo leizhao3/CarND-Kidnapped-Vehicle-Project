@@ -4,7 +4,6 @@
 #include <string>
 #include "json.hpp"
 #include "particle_filter.h"
-//#include "particle_filter0.h"
 
 // for convenience
 using nlohmann::json;
@@ -129,8 +128,8 @@ int main() {
             weight_sum += particles[i].weight;
           }
 
-          std::cout << "highest w " << std::scientific << highest_weight << std::endl;
-          std::cout << "average w " << std::scientific << weight_sum/num_particles << std::endl;
+          std::cout << "highest w " << highest_weight << std::endl;
+          std::cout << "average w " << weight_sum/num_particles << std::endl;
 
           json msgJson;
           msgJson["best_particle_x"] = best_particle.x;

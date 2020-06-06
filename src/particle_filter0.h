@@ -15,9 +15,9 @@
 
 struct Particle {
   int id;
-  double x;//unit: meter, in MAP coordinate
-  double y;//unit: meter, in MAP coordinate
-  double theta;//unit: radian, in MAP coordinate
+  double x;
+  double y;
+  double theta;
   double weight;
   std::vector<int> associations;
   std::vector<double> sense_x;
@@ -61,17 +61,10 @@ class ParticleFilter {
    * dataAssociation Finds which observations correspond to which landmarks 
    *   (likely by using a nearest-neighbors data association).
    * @param predicted Vector of predicted landmark observations
-   * @param map_landmarks Map class containing map landmarks
+   * @param observations Vector of landmark observations
    */
-  void dataAssociation(LandmarkObs &obs_map, 
-                       const Map &map_landmarks);
-  
-  /**
-   * VehicleCoor2MapCoor convert the coordinate from VEHICLE to MAP
-   * @param observations observations, in VEHICLE coordinate
-   */
-  std::vector<LandmarkObs> VehicleCoor2MapCoor(Particle part, const std::vector<LandmarkObs> &observations);
-
+  void dataAssociation(std::vector<LandmarkObs> predicted, 
+                       std::vector<LandmarkObs>& observations);
   
   /**
    * updateWeights Updates the weights for each particle based on the likelihood
@@ -79,7 +72,7 @@ class ParticleFilter {
    * @param sensor_range Range [m] of sensor
    * @param std_landmark[] Array of dimension 2
    *   [Landmark measurement uncertainty [x [m], y [m]]]
-   * @param observations Vector of landmark observations, in VEHICLE coordinate
+   * @param observations Vector of landmark observations
    * @param map Map class containing map landmarks
    */
   void updateWeights(double sensor_range, double std_landmark[], 
