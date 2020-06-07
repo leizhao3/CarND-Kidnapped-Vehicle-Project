@@ -9,12 +9,16 @@
 #ifndef HELPER_FUNCTIONS_H_
 #define HELPER_FUNCTIONS_H_
 
+#include <iostream>
 #include <math.h>
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <vector>
+#include <numeric>
 #include "map.h"
+
+using std::vector;
 
 // for portability of M_PI (Vis Studio, MinGW, etc.)
 #ifndef M_PI
@@ -246,6 +250,29 @@ inline bool read_landmark_data(std::string filename,
     observations.push_back(meas);
   }
   return true;
+}
+
+inline void analyze_data_set(vector<double> data_set) {
+
+  double sum = std::accumulate(std::begin(data_set), std::end(data_set), 0.0);
+  double mean =  sum / data_set.size();
+  double max = -1;
+  double min = 1;
+
+  double accum = 0.0;
+  for(int i=0; i<data_set.size(); i++) {
+    double data = data_set[i];
+    accum += (data-mean) * (data-mean);
+    if(data > max) {max = data;}
+    if(data < min) {min = data;}
+  }
+  double std_dev = sqrt(accum / data_set.size());
+
+  std::cout << "sum = " << sum << std::endl;
+  std::cout << "mean = " << mean << std::endl;
+  std::cout << "max = " << max << std::endl;
+  std::cout << "min = " << min << std::endl;
+  std::cout << "std_dev = " << std_dev << std::endl;
 }
 
 #endif  // HELPER_FUNCTIONS_H_
