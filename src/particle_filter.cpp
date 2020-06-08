@@ -24,6 +24,8 @@ using std::vector;
 using std::normal_distribution;
 using std::setw;
 
+void display_part_obsmap(Particle part, vector<LandmarkObs> &observations_map);
+
 void ParticleFilter::init(double x, double y, double theta, double std[]) {
   /**
    * TODO: Set the number of particles. Initialize all particles to 
@@ -110,6 +112,12 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
             << setw(width)<< "y_pred" 
             << setw(width)<< "theta_pred" 
             << std::endl;*/
+  
+  std::default_random_engine gen;
+  const double std_x = std_pos[0];
+  const double std_y = std_pos[1];
+  const double std_theta = std_pos[2];
+
 
   for(int i=0; i<num_particles; i++){
     /*
@@ -118,11 +126,28 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
               << setw(width)<< particles[i].theta
               << setw(width)<< velocity
               << setw(width)<< yaw_rate;*/
+    double theta_f;
+    double x_f;
+    double y_f;
 
-    double theta_f = particles[i].theta + yaw_rate*delta_t;
-    particles[i].x += velocity/yaw_rate*(sin(theta_f)-sin(particles[i].theta));
-    particles[i].y += velocity/yaw_rate*(cos(particles[i].theta)-cos(theta_f));
-    particles[i].theta = theta_f;
+    if(yaw_rate != 0) {
+      theta_f = particles[i].theta + yaw_rate*delta_t;
+      x_f = particles[i].x + velocity/yaw_rate*(sin(theta_f)-sin(particles[i].theta));
+      y_f = particles[i].y + velocity/yaw_rate*(cos(particles[i].theta)-cos(theta_f));
+    } else {
+      theta_f = particles[i].theta + yaw_rate*delta_t;
+      double distance = velocity*delta_t;
+      x_f = particles[i].x + cos(distance);
+      y_f = particles[i].y + sin(distance);
+    }
+
+    normal_distribution<double> dist_x(x_f, std_x);
+    normal_distribution<double> dist_y(y_f, std_y);
+    normal_distribution<double> dist_theta(theta_f, std_theta);
+
+    particles[i].x = dist_x(gen);
+    particles[i].y = dist_y(gen);
+    particles[i].theta = dist_theta(gen);
 
     /*
     std::cout << setw(width)<< particles[i].x
@@ -148,7 +173,7 @@ void ParticleFilter::dataAssociation(LandmarkObs &obs_map,
    */
 
   
-  int dist_min_ind;
+  int dist_min_ind = 0;
   double dist_j;
   double dist_min = dist(obs_map.x, obs_map.y, 
                           map_landmarks.landmark_list[0].x_f, map_landmarks.landmark_list[0].y_f);
@@ -169,8 +194,8 @@ void ParticleFilter::dataAssociation(LandmarkObs &obs_map,
 
     }
   }
-  //obs_map.id = map_landmarks.landmark_list[dist_min_ind].id_i;
-  obs_map.id = dist_min_ind;
+  obs_map.id = map_landmarks.landmark_list[dist_min_ind].id_i;
+  //obs_map.id = dist_min_ind;
   
   
 
@@ -218,12 +243,17 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
    *   (look at equation 3.33) http://planning.cs.uiuc.edu/node99.html
    */
 
+  //Trouble Shooting
+  if(observations.size() <= 0) {
+    std::cout << "no observations ==> no landmark is detected." << std::endl;
+    return;
+  }
+
   //Define the observations standard deviation
   const double sigma_x = std_landmark[0];
   const double sigma_y = std_landmark[1];
-  //int associations_temp;
 
-  /*
+  /*//Map output dislplay
   std::cout << "Map is listed below"  << std::endl;
   std::cout << setw(15)<< "id_i"
             << setw(15)<< "x_f"
@@ -240,8 +270,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
 
   for(int i=0; i<num_particles; i++) {
-    double weight_temp = 1;
-    double posterior;
+    
     vector<LandmarkObs> observations_map;
 
     vector<int> associations = {}; 
@@ -249,7 +278,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     vector<double> sense_y = {};
 
     int width = 15;
-    /*
+    /*//Single particle & corresponding landmark display
     std::cout << "-----------------------------------" << std::endl;
     std::cout << "i = " << i << std::endl;
     std::cout << setw(width)<< "j" 
@@ -263,38 +292,53 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
               << setw(width)<< "Posterior" 
               << std::endl;*/
 
-    /**
-     * Convert observations from VEHICLE to MAP coordiate. 
-     * @param observations_map has the same size as @param observations.
-     */
+    // Convert observations from VEHICLE to MAP coordiate. 
     observations_map = VehicleCoor2MapCoor(particles[i], observations); 
+
+    double weight_temp = 1;
+    double posterior = 1;
+    const double normalizer = 1.0/(2.0*M_PI*sigma_x*sigma_y);
 
     for(int j=0; j<observations.size(); j++){
 
         dataAssociation(observations_map[j], map_landmarks);
 
-
-        double x = observations_map[j].x;
-        double y = observations_map[j].y;
-
-        int landmark_index = observations_map[j].id;
-        double mu_x = map_landmarks.landmark_list[landmark_index].x_f;
-        double mu_y = map_landmarks.landmark_list[landmark_index].y_f;
-
-        //Apply Multivariate-Gaussian probability density
-        double exponent = exp(-(pow((x-mu_x),2)/(2*pow(sigma_x,2))+
-                                pow((y-mu_y),2)/(2*pow(sigma_x,2))));
-        
-        posterior = 1/(2*M_PI*sigma_x*sigma_y) * exponent;
-
-        
         double obs_range = sqrt(observations[j].x*observations[j].x + observations[j].y*observations[j].y);
-        if(obs_range < sensor_range) {
+        if(obs_range <= sensor_range) {
+
+          double x = observations_map[j].x;
+          double y = observations_map[j].y;
+          int landmark_index = -1;
+
+          for(unsigned int m=0; m<map_landmarks.landmark_list.size(); m++) {
+            if(observations_map[j].id == map_landmarks.landmark_list[m].id_i) {
+              landmark_index = m;
+            } 
+          }
+          if(landmark_index == -1) { //Trouble shooting for not finding the landmark
+            std::cout << "could not find index on the map" << std::endl;
+            std::cout << "-----------------------------------" << std::endl;
+            std::cout << "j = " << j << std::endl;  
+            display_part_obsmap(particles[i], observations_map);
+            
+            return;
+          }
+
+          double mu_x = map_landmarks.landmark_list[landmark_index].x_f;
+          double mu_y = map_landmarks.landmark_list[landmark_index].y_f;
+
+          //Apply Multivariate-Gaussian probability density
+          double exponent = exp(-(pow((x-mu_x),2)/(2*pow(sigma_x,2))+
+                                  pow((y-mu_y),2)/(2*pow(sigma_x,2))));
+        
+          posterior = normalizer * exponent;
           weight_temp *= posterior;
+        } else {
+          //std::cout << "obs_range > sensor_range, skipping j=" << j << std::endl;
         }
         
 
-        /*
+        /*//Single particle & corresponding landmark display
         std::cout << setw(width)<< j
                   << setw(width)<< observations[j].x << ","
                   << setw(width)<< observations[j].y << ","
@@ -312,8 +356,8 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
 
         associations.push_back(observations_map[j].id);
-        sense_x.push_back(observations_map[i].x);
-        sense_y.push_back(observations_map[i].y);
+        sense_x.push_back(observations_map[j].x);
+        sense_y.push_back(observations_map[j].y);
     }
     particles[i].weight = weight_temp;
 
@@ -341,7 +385,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     std::cout << "landmark ID =" << std::endl;
     std::cout << "[";
     for(int m=0; m<observations_map.size(); m++) {
-      std::cout << observations_map[m].id+1 << ","; //landmark starts at 1
+      std::cout << observations_map[m].id << ","; 
     }
     std::cout << "]" << std::endl;
     */
@@ -462,4 +506,30 @@ string ParticleFilter::getSenseCoord(Particle best, string coord) {
   string s = ss.str();
   s = s.substr(0, s.length()-1);  // get rid of the trailing space
   return s;
+}
+
+
+void display_part_obsmap(Particle part, vector<LandmarkObs> &observations_map) {
+  std::cout << "particles[i] = [" << part.x << "," << part.y << "," << part.theta << "]" << std::endl;
+            
+  std::cout << "observations_map.x =" << std::endl;
+  std::cout << "[";
+  for(int m=0; m<observations_map.size(); m++) {
+    std::cout << observations_map[m].x << ",";
+  }
+  std::cout << "]" << std::endl;
+
+  std::cout << "observations_map.y =" << std::endl;
+  std::cout << "[";
+  for(int m=0; m<observations_map.size(); m++) {
+    std::cout << observations_map[m].y << ",";
+  }
+  std::cout << "]" << std::endl;
+
+  std::cout << "landmark ID =" << std::endl;
+  std::cout << "[";
+  for(int m=0; m<observations_map.size(); m++) {
+    std::cout << observations_map[m].id << ","; 
+  }
+  std::cout << "]" << std::endl;
 }
