@@ -35,7 +35,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
    * NOTE: Consult particle_filter.h for more information about this method 
    *   (and others in this file).
    */
-  //num_particles = 1000;  // Set the number of particles
+
   num_particles = 100;  // Set the number of particles
   
   // Declare the stand deviation for [standard deviation of x [m], 
@@ -52,8 +52,8 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 
   Particle particle;
 
+  /*//Checking the initial parameters
   int width = 15;
-  /*//
   std::cout <<"During Initializing......................" << std::endl;
   std::cout << setw(width)<< "x" 
             << setw(width)<< "y" 
@@ -72,7 +72,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 
     particles.push_back(particle);
 
-    /*
+    /*//Checking the initial parameters
     std::cout << setw(width)<< particles[i].x
               << setw(width)<< particles[i].y
               << setw(width)<< particles[i].theta
@@ -95,13 +95,10 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
    *  http://www.cplusplus.com/reference/random/default_random_engine/
    */
 
-  //const double std_x = std_pos[0];
-  //const double std_y = std_pos[1];
-  //const double std_theta = std_pos[2];
 
+
+  /*//Check the prediction function
   int width = 15;
-
-  /*
   std::cout <<"During Predicting......................" << std::endl;
   std::cout << setw(width)<< "x" 
             << setw(width)<< "y" 
@@ -120,7 +117,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
 
 
   for(int i=0; i<num_particles; i++){
-    /*
+    /*//Check the prediction function
     std::cout << setw(width)<< particles[i].x
               << setw(width)<< particles[i].y
               << setw(width)<< particles[i].theta
@@ -149,7 +146,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
     particles[i].y = dist_y(gen);
     particles[i].theta = dist_theta(gen);
 
-    /*
+    /*//Check the prediction function
     std::cout << setw(width)<< particles[i].x
               << setw(width)<< particles[i].y
               << setw(width)<< particles[i].theta
@@ -184,18 +181,19 @@ void ParticleFilter::dataAssociation(LandmarkObs &obs_map,
                   map_landmarks.landmark_list[j].x_f, map_landmarks.landmark_list[j].y_f);
     //std::cout << "dist_j is " << dist_j << std::endl;
     if(dist_j < dist_min) {
-      //std::cout << "Get smaller distance!!! " << std::endl;
       dist_min = dist_j;
       dist_min_ind = j;
-      //std::cout << "dist_min = " << dist_min << std::endl;
-      //std::cout << "dist_min_ind = " << dist_min_ind << std::endl;
-      //std::cout << "map_landmarks.landmark_list[dist_min_ind].id_i = " << map_landmarks.landmark_list[dist_min_ind].id_i << std::endl;
+      /* Check the functionality of the data association
+      std::cout << "Get smaller distance!!! " << std::endl;
+      std::cout << "dist_min = " << dist_min << std::endl;
+      std::cout << "dist_min_ind = " << dist_min_ind << std::endl;
+      std::cout << "map_landmarks.landmark_list[dist_min_ind].id_i = " 
+                << map_landmarks.landmark_list[dist_min_ind].id_i << std::endl;*/
 
 
     }
   }
   obs_map.id = map_landmarks.landmark_list[dist_min_ind].id_i;
-  //obs_map.id = dist_min_ind;
   
   
 
@@ -211,7 +209,6 @@ vector<LandmarkObs> ParticleFilter::VehicleCoor2MapCoor(Particle part,
 
     vector<LandmarkObs> observations_map = {};
     LandmarkObs observations_map_temp;
-    //const double theta = -M_PI/2; // -90 degrees
 
     for(int j=0; j<observations.size(); j++) {
 
@@ -303,7 +300,9 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
         dataAssociation(observations_map[j], map_landmarks);
 
-        double obs_range = sqrt(observations[j].x*observations[j].x + observations[j].y*observations[j].y);
+        //Calculate the posterior only for sensor in the range
+        double obs_range = sqrt(observations[j].x*observations[j].x + 
+                                observations[j].y*observations[j].y);
         if(obs_range <= sensor_range) {
 
           double x = observations_map[j].x;
@@ -315,6 +314,8 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
               landmark_index = m;
             } 
           }
+
+          //TroubleShooting: check whether or not find the landmark ID.
           if(landmark_index == -1) { //Trouble shooting for not finding the landmark
             std::cout << "could not find index on the map" << std::endl;
             std::cout << "-----------------------------------" << std::endl;
@@ -333,9 +334,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
         
           posterior = normalizer * exponent;
           weight_temp *= posterior;
-        } else {
-          //std::cout << "obs_range > sensor_range, skipping j=" << j << std::endl;
-        }
+        } 
         
 
         /*//Single particle & corresponding landmark display
@@ -356,38 +355,16 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
 
         associations.push_back(observations_map[j].id);
-        sense_x.push_back(observations_map[j].x);
-        sense_y.push_back(observations_map[j].y);
+        sense_x.push_back(observations_map[j].x);//x, in MAP coordiate
+        sense_y.push_back(observations_map[j].y);//y, in MAP coordiate
     }
     particles[i].weight = weight_temp;
 
     SetAssociations(particles[i],associations, sense_x, sense_y);
 
-    /*
+    /*//Display single particle & observation in MAP coordiate
     std::cout << "particles[i].weight AFTER =" << particles[i].weight << std::endl;
-
-    std::cout << "particles[i] = [" << particles[i].x << "," << particles[i].y << "," << particles[i].theta << "]" << std::endl;
-
-    std::cout << "observations_map.x =" << std::endl;
-    std::cout << "[";
-    for(int m=0; m<observations_map.size(); m++) {
-      std::cout << observations_map[m].x << ",";
-    }
-    std::cout << "]" << std::endl;
-
-    std::cout << "observations_map.y =" << std::endl;
-    std::cout << "[";
-    for(int m=0; m<observations_map.size(); m++) {
-      std::cout << observations_map[m].y << ",";
-    }
-    std::cout << "]" << std::endl;
-
-    std::cout << "landmark ID =" << std::endl;
-    std::cout << "[";
-    for(int m=0; m<observations_map.size(); m++) {
-      std::cout << observations_map[m].id << ","; 
-    }
-    std::cout << "]" << std::endl;
+    display_part_obsmap(particles[i], observations_map);
     */
 
   }
@@ -425,47 +402,6 @@ void ParticleFilter::resample() {
   std::cout << std::endl;
 
   particles = particles_3;
-
-
-
-  
-  /*
-  vector<Particle> particles_3;
-  int index = distr(gen); //need to redo
-  double beta = 0.0f;
-
-  // Find the highest weight
-  double highest_weight = -1.0;
-  for (int i = 0; i < num_particles; ++i) {
-    if (particles[i].weight > highest_weight) {
-      highest_weight = particles[i].weight;
-    }
-  }
-  
-  for (int i = 0; i < num_particles; ++i) {
-    beta += distr(gen)/num_particles * 2 * highest_weight; //need to redo
-    while(beta > particles[index].weight){
-      beta -= particles[index].weight;
-      index = (index+1) % num_particles;
-    }
-    particles_3.push_back(particles[index]);
-  }
-
-  particles = particles_3;
-  */
-  
-
-  
-
-  /*
-  for i in range(N):
-      beta += random.random()*2*w_max
-      while beta > w[index]:
-          beta -= w[index]
-          index = (index + 1) % N
-      p3.append(p[index])
-  p = p3
-  */
 
 }
 

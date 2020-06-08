@@ -79,20 +79,6 @@ int main() {
             double previous_velocity = std::stod(j[1]["previous_velocity"].get<string>());
             double previous_yawrate = std::stod(j[1]["previous_yawrate"].get<string>());
 
-            /*
-            int width = 15;
-            std::cout <<"BEFORE prediction......................" << std::endl;
-            std::cout << setw(width)<< "x" 
-                      << setw(width)<< "y" 
-                      << setw(width)<< "theta"
-                      << std::endl;
-            for (int m = 0; m < pf.particles.size(); ++m) {
-              std::cout << setw(width)<< pf.particles[m].x
-                        << setw(width)<< pf.particles[m].y
-                        << setw(width)<< pf.particles[m].theta
-                        << std::endl;
-            }*/
-
             pf.prediction(delta_t, sigma_pos, previous_velocity, previous_yawrate);
             //should this sigma_pos be the stand deviation of the volocity & yawrate sensor??
           }
@@ -125,8 +111,7 @@ int main() {
             noisy_observations.push_back(obs);
           }
 
-          /*
-          // Weights analysis before updateWeights
+          /*// Weights analysis before updateWeights
           vector<Particle> particles_before = pf.particles;
           vector<double> weights_before = {};
           for (int m = 0; m < pf.particles.size(); ++m) {
@@ -138,8 +123,7 @@ int main() {
           // Update the weights and resample
           pf.updateWeights(sensor_range, sigma_landmark, noisy_observations, map);
 
-          /*
-          // Weights analysis after updateWeights
+          /*// Weights analysis after updateWeights
           vector<Particle> particles_after = pf.particles;
           vector<double> weights_after = {};
           for (int m = 0; m < pf.particles.size(); ++m) {
@@ -147,20 +131,7 @@ int main() {
           }
           std::cout << "AFTER updateWeights: weights data analysis" << std::endl;
           analyze_data_set(weights_after);*/
-
-          /*
-          std::cout << setw(15)<< "weights_before" 
-                    << setw(15)<< "weights_after"
-                    << std::endl;
-          for (int m = 0; m < pf.particles.size(); ++m) {
-            std::cout << setw(15)<< weights_before[m]
-                      << setw(15)<< weights_after[m]
-                      << std::endl;
-          }*/
-
-
           
-
 
           pf.resample();
 
