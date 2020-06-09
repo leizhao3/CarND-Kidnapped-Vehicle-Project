@@ -60,7 +60,7 @@ class ParticleFilter {
   /**
    * dataAssociation Finds which observations correspond to which landmarks 
    *   (likely by using a nearest-neighbors data association).
-   * @param predicted Vector of predicted landmark observations
+   * @param obs_map predicted landmark observations in MAP coordiate
    * @param map_landmarks Map class containing map landmarks
    */
   void dataAssociation(LandmarkObs &obs_map, 
@@ -68,6 +68,7 @@ class ParticleFilter {
   
   /**
    * VehicleCoor2MapCoor convert the coordinate from VEHICLE to MAP
+   * @param part single particle, in VEHICLE coordinate
    * @param observations observations, in VEHICLE coordinate
    */
   std::vector<LandmarkObs> VehicleCoor2MapCoor(Particle part, const std::vector<LandmarkObs> &observations);

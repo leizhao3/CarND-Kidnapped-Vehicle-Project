@@ -28,12 +28,13 @@ void display_part_obsmap(Particle part, vector<LandmarkObs> &observations_map);
 
 void ParticleFilter::init(double x, double y, double theta, double std[]) {
   /**
-   * TODO: Set the number of particles. Initialize all particles to 
-   *   first position (based on estimates of x, y, theta and their uncertainties
-   *   from GPS) and all weights to 1. 
-   * TODO: Add random Gaussian noise to each particle.
-   * NOTE: Consult particle_filter.h for more information about this method 
-   *   (and others in this file).
+   * init Initializes particle filter by initializing particles to Gaussian
+   *   distribution around first position and all the weights to 1.
+   * @param x Initial x position [m] (simulated estimate from GPS)
+   * @param y Initial y position [m]
+   * @param theta Initial orientation [rad]
+   * @param std[] Array of dimension 3 [standard deviation of x [m], 
+   *   standard deviation of y [m], standard deviation of yaw [rad]]
    */
 
   num_particles = 100;  // Set the number of particles
@@ -88,11 +89,10 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 void ParticleFilter::prediction(double delta_t, double std_pos[], 
                                 double velocity, double yaw_rate) {
   /**
-   * TODO: Add measurements to each particle and add random Gaussian noise.
-   * NOTE: When adding noise you may find std::normal_distribution 
-   *   and std::default_random_engine useful.
-   *  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
-   *  http://www.cplusplus.com/reference/random/default_random_engine/
+   * dataAssociation Finds which observations correspond to which landmarks 
+   *   (likely by using a nearest-neighbors data association).
+   * @param predicted Vector of predicted landmark observations
+   * @param map_landmarks Map class containing map landmarks
    */
 
 
@@ -161,12 +161,10 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
 void ParticleFilter::dataAssociation(LandmarkObs &obs_map, 
                                      const Map &map_landmarks) {
   /**
-   * TODO: Find the predicted measurement that is closest to each 
-   *   observed measurement and assign the observed measurement to this 
-   *   particular landmark.
-   * NOTE: this method will NOT be called by the grading code. But you will 
-   *   probably find it useful to implement this method and use it as a helper 
-   *   during the updateWeights phase.
+   * dataAssociation Finds which observations correspond to which landmarks 
+   *   (likely by using a nearest-neighbors data association).
+   * @param obs_map predicted landmark observations in MAP coordiate
+   * @param map_landmarks Map class containing map landmarks
    */
 
   
@@ -227,17 +225,13 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
                                    const vector<LandmarkObs> &observations, 
                                    const Map &map_landmarks) {
   /**
-   * TODO: Update the weights of each particle using a mult-variate Gaussian 
-   *   distribution. You can read more about this distribution here: 
-   *   https://en.wikipedia.org/wiki/Multivariate_normal_distribution
-   * NOTE: The observations are given in the VEHICLE'S coordinate system. 
-   *   Your particles are located according to the MAP'S coordinate system. 
-   *   You will need to transform between the two systems. Keep in mind that
-   *   this transformation requires both rotation AND translation (but no scaling).
-   *   The following is a good resource for the theory:
-   *   https://www.willamette.edu/~gorr/classes/GeneralGraphics/Transforms/transforms2d.htm
-   *   and the following is a good resource for the actual equation to implement
-   *   (look at equation 3.33) http://planning.cs.uiuc.edu/node99.html
+   * updateWeights Updates the weights for each particle based on the likelihood
+   *   of the observed measurements. 
+   * @param sensor_range Range [m] of sensor
+   * @param std_landmark[] Array of dimension 2
+   *   [Landmark measurement uncertainty [x [m], y [m]]]
+   * @param observations Vector of landmark observations, in VEHICLE coordinate
+   * @param map Map class containing map landmarks
    */
 
   //Trouble Shooting
@@ -296,67 +290,63 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     double posterior = 1;
     const double normalizer = 1.0/(2.0*M_PI*sigma_x*sigma_y);
 
+    //Look for landmark in the range
+    Map map_landmarks_inrange = {};
+    for(int k=0; k<map_landmarks.landmark_list.size(); k++) {
+      double obs_distance = dist(particles[i].x, particles[i].y, 
+                                  map_landmarks.landmark_list[k].x_f, 
+                                  map_landmarks.landmark_list[k].y_f);
+      if(obs_distance < sensor_range) {
+        map_landmarks_inrange.landmark_list.push_back(map_landmarks.landmark_list[k]);
+      }
+    }
+
     for(int j=0; j<observations.size(); j++){
 
-        dataAssociation(observations_map[j], map_landmarks);
+      dataAssociation(observations_map[j], map_landmarks_inrange);
 
-        //Calculate the posterior only for sensor in the range
-        double obs_range = sqrt(observations[j].x*observations[j].x + 
-                                observations[j].y*observations[j].y);
-        if(obs_range <= sensor_range) {
+      double x = observations_map[j].x;
+      double y = observations_map[j].y;
+      int landmark_index = -1;
 
-          double x = observations_map[j].x;
-          double y = observations_map[j].y;
-          int landmark_index = -1;
-
-          for(unsigned int m=0; m<map_landmarks.landmark_list.size(); m++) {
-            if(observations_map[j].id == map_landmarks.landmark_list[m].id_i) {
-              landmark_index = m;
-            } 
-          }
-
-          //TroubleShooting: check whether or not find the landmark ID.
-          if(landmark_index == -1) { //Trouble shooting for not finding the landmark
-            std::cout << "could not find index on the map" << std::endl;
-            std::cout << "-----------------------------------" << std::endl;
-            std::cout << "j = " << j << std::endl;  
-            display_part_obsmap(particles[i], observations_map);
-            
-            return;
-          }
-
-          double mu_x = map_landmarks.landmark_list[landmark_index].x_f;
-          double mu_y = map_landmarks.landmark_list[landmark_index].y_f;
-
-          //Apply Multivariate-Gaussian probability density
-          double exponent = exp(-(pow((x-mu_x),2)/(2*pow(sigma_x,2))+
-                                  pow((y-mu_y),2)/(2*pow(sigma_x,2))));
-        
-          posterior = normalizer * exponent;
-          weight_temp *= posterior;
+      for(unsigned int m=0; m<map_landmarks_inrange.landmark_list.size(); m++) {
+        if(observations_map[j].id == map_landmarks_inrange.landmark_list[m].id_i) {
+          landmark_index = m;
         } 
-        
+      }
 
-        /*//Single particle & corresponding landmark display
-        std::cout << setw(width)<< j
-                  << setw(width)<< observations[j].x << ","
-                  << setw(width)<< observations[j].y << ","
-                  << setw(width)<< observations_map[j].x << ","
-                  << setw(width)<< observations_map[j].y << ","
-                  << setw(width)<< map_landmarks.landmark_list[landmark_index].id_i
-                  << setw(width)<< mu_x
-                  << setw(width)<< mu_y;
-        if(obs_range < sensor_range) {
-          std::cout << setw(width)<< posterior;
-        } else {
-          std::cout << setw(width)<< "OoRange";
-        }
-        std::cout << std::endl;*/
+      double mu_x = map_landmarks_inrange.landmark_list[landmark_index].x_f;
+      double mu_y = map_landmarks_inrange.landmark_list[landmark_index].y_f;
+
+      //Apply Multivariate-Gaussian probability density
+      double exponent = exp(-(pow((x-mu_x),2)/(2*pow(sigma_x,2))+
+                              pow((y-mu_y),2)/(2*pow(sigma_x,2))));
+    
+      posterior = normalizer * exponent;
+      weight_temp *= posterior;
+      
+      
+
+      /*//Single particle & corresponding landmark display
+      std::cout << setw(width)<< j
+                << setw(width)<< observations[j].x << ","
+                << setw(width)<< observations[j].y << ","
+                << setw(width)<< observations_map[j].x << ","
+                << setw(width)<< observations_map[j].y << ","
+                << setw(width)<< map_landmarks.landmark_list[landmark_index].id_i
+                << setw(width)<< mu_x
+                << setw(width)<< mu_y;
+      if(obs_range < sensor_range) {
+        std::cout << setw(width)<< posterior;
+      } else {
+        std::cout << setw(width)<< "OoRange";
+      }
+      std::cout << std::endl;*/
 
 
-        associations.push_back(observations_map[j].id);
-        sense_x.push_back(observations_map[j].x);//x, in MAP coordiate
-        sense_y.push_back(observations_map[j].y);//y, in MAP coordiate
+      associations.push_back(observations_map[j].id);
+      sense_x.push_back(observations_map[j].x);//x, in MAP coordiate
+      sense_y.push_back(observations_map[j].y);//y, in MAP coordiate
     }
     particles[i].weight = weight_temp;
 
@@ -374,10 +364,8 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
 void ParticleFilter::resample() {
   /**
-   * TODO: Resample particles with replacement with probability proportional 
-   *   to their weight. 
-   * NOTE: You may find std::discrete_distribution helpful here.
-   *   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
+   * resample Resamples from the updated set of particles to form
+   *   the new set of particles.
    */
 
   std::random_device rd;
